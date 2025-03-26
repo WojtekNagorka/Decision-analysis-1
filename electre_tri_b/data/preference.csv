@@ -1,0 +1,9 @@
+criterion,q,p,w,type
+Rooms,0,2,0.15,gain
+Price,10000,40000,0.3,cost
+Bedroom2,0,2,0.1,gain
+Bathroom,0,1,0.05,gain
+Car,0,1,0.05,gain
+Landsize,200,450,0.1,gain
+BuildingArea,40,80,0.15,gain
+YearBuilt,5,30,0.1,gain

@@ -4,7 +4,7 @@ import click
 import numpy as np
 import pandas as pd
 
-from promethee.utils import (
+from utils import (
     load_dataset,
     load_preference_information,
     display_ranking,
@@ -32,13 +32,41 @@ def calculate_marginal_preference_matrix(
     dataset: pd.DataFrame, preference_information: pd.DataFrame
 ) -> np.ndarray:
     """
-    Function that calculates the marginal preference matrix all alternatives pairs and criterion available in dataset
+     Function that calculates the marginal preference matrix all alternatives pairs and criterion available in dataset
 
-    :param dataset: difference between compared alternatives
-    :param preference_information: preference information
-    :return: 3D numpy array with marginal preference matrix on every parser, Consecutive indices [i, j, k] describe first alternative, second alternative, parser
-    """
-    raise NotImplementedError()
+     :param dataset: difference between compared alternatives
+     :param preference_information: preference information
+     :return: 3D numpy array with marginal preference matrix on every parser, Consecutive indices [i, j, k] describe first alternative, second alternative, parser
+     """
+    data=[]
+    for i in range(len(dataset)):
+        data_i=[]
+        for j in range(len(dataset)):
+            data_j=[]
+            if i==j:
+                data_i.append([0 for k in range(dataset.shape[1])])
+                continue
+            for criterion_nr in range(dataset.shape[1]):
+                q,p,type=preference_information.iloc[criterion_nr].loc['q'],preference_information.iloc[criterion_nr].loc['p'],preference_information.iloc[criterion_nr].loc['type']
+                if type=="gain":
+                    d = dataset.iloc[i].iloc[criterion_nr] - dataset.iloc[j].iloc[criterion_nr]
+                else:
+                    d = dataset.iloc[j].iloc[criterion_nr]-dataset.iloc[i].iloc[criterion_nr]
+
+                if d > p:
+                    data_j.append(1)
+                elif d <= q:
+                    data_j.append(0)
+                else:
+                    data_j.append((d - q) / (p - q))
+            data_i.append(data_j)
+        data.append(data_i)
+
+    return np.array(data)
+
+
+
+
 
 
 # TODO
@@ -52,7 +80,9 @@ def calculate_comprehensive_preference_index(
     :param preference_information: Padnas preference information dataframe
     :return: 2D numpy array with marginal preference matrix. Every entry in the matrix [i, j] represents comprehensive preference index between alternative i and alternative j
     """
-    raise NotImplementedError()
+    weights=preference_information["w"].to_numpy()
+    return np.sum(marginal_preference_matrix * weights, axis=2)
+
 
 
 # TODO
@@ -66,7 +96,10 @@ def calculate_positive_flow(
     :param index: index representing the alternative in the corresponding position in preference matrix
     :return: series representing positive flow values for the given preference matrix
     """
-    raise NotImplementedError()
+
+    return pd.Series(np.sum(comprehensive_preference_matrix, axis=1),index=index)
+
+
 
 
 # TODO
@@ -80,7 +113,7 @@ def calculate_negative_flow(
     :param index: index representing the alternative in the corresponding position in preference matrix
     :return: series representing negative flow values for the given preference matrix
     """
-    raise NotImplementedError()
+    return pd.Series(np.sum(comprehensive_preference_matrix, axis=0), index=index)
 
 
 # TODO
@@ -92,7 +125,7 @@ def calculate_net_flow(positive_flow: pd.Series, negative_flow: pd.Series) -> pd
     :param negative_flow: series representing negative flow values for the given preference matrix
     :return: series representing net flow values for the given preference matrix
     """
-    raise NotImplementedError()
+    return positive_flow-negative_flow
 
 
 # TODO
@@ -106,7 +139,21 @@ def create_partial_ranking(
     :param negative_flow: series representing negative flow values for the given preference matrix
     :return: list of tuples when entries in a tuple represent first alternative, second alternative and the relation between them respectively
     """
-    raise NotImplementedError()
+    partial_ranking=set()
+    for a1 in positive_flow.index:
+        for a2 in negative_flow.index:
+            if a1==a2:
+                continue
+            fpos1,fneg1=positive_flow[a1],negative_flow[a1]
+            fpos2,fneg2=positive_flow[a2],negative_flow[a2]
+            if fpos1>fpos2 and not fneg1>fneg2:
+                partial_ranking.add(tuple([a1,a2,Relation.PREFERRED]))
+            elif fpos1==fpos2 and fneg1==fneg2:
+                partial_ranking.add(tuple([a1, a2, Relation.INDIFFERENT]))
+            elif (fpos1 > fpos2 and fneg1 > fneg2) or (fpos1 < fpos2 and fneg1<fneg2):
+                partial_ranking.add((a1, a2, Relation.INCOMPARABLE))
+
+    return partial_ranking
 
 
 # TODO
@@ -118,7 +165,16 @@ def create_complete_ranking(net_flow: pd.Series) -> set[tuple[str, str, Relation
     1 means that i is preferred over j, or they are indifferent
     0 otherwise
     """
-    raise NotImplementedError()
+    ranking = set()
+    for a1 in net_flow.index:
+        for a2 in net_flow.index:
+            if a1==a2:
+                continue
+            if net_flow[a1]>=net_flow[a2]:
+                ranking.add(tuple([str(a1),str(a2),Relation.PREFERRED]))
+            elif net_flow[a1]==net_flow[a2]:
+                ranking.add(tuple([str(a1), str(a2), Relation.INDIFFERENT]))
+    return ranking
 
 
 @click.command()
@@ -135,7 +191,6 @@ def promethee(dataset_path: str) -> None:
     comprehensive_preference_matrix = calculate_comprehensive_preference_index(
         marginal_preference_matrix, preference_information
     )
-
     positive_flow = calculate_positive_flow(
         comprehensive_preference_matrix, dataset.index
     )

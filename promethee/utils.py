@@ -101,10 +101,10 @@ def remove_cycles(ranking: pd.DataFrame) -> pd.DataFrame:
 
 
 def display_ranking(ranking: set[tuple[str, str, Relation]], title: str) -> None:
+    plt.figure()
     outranking_matrix = convert_to_outranking_matrix(ranking)
-
     diagram = remove_cycles(outranking_matrix)
-
+    print("dipa")
     nodes = diagram.index.tolist()
     edges = [(nodes[i], nodes[j]) for i, j in np.stack(np.nonzero(diagram)).T.tolist()]
 
@@ -116,4 +116,5 @@ def display_ranking(ranking: set[tuple[str, str, Relation]], title: str) -> None
     layout = graphviz_layout(g, prog="dot")
     plt.title(title)
     nx.draw(g, layout, with_labels=True, arrows=True)
+    plt.savefig("plot.png")
     plt.show()
